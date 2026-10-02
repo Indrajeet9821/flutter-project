@@ -1,19 +1,4 @@
-// ============================================================
-// FILE: lib/screens/auth/login_screen.dart
-// PURPOSE: Full login screen with validation and auth.
-//
-// Features:
-// - Email and password fields with validation
-// - Show/hide password toggle
-// - Login button with loading state
-// - Error message display
-// - Links to Registration and Forgot Password
-// - Role-based navigation after login
-// - Demo account info for easy testing
-// ============================================================
-
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
@@ -22,12 +7,14 @@ import '../../utils/helpers.dart';
 import '../../utils/validators.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
-import '../student/student_dashboard.dart';
-import '../staff/staff_dashboard.dart';
-import '../admin/admin_dashboard.dart';
-import 'registration_screen.dart';
 import 'forgot_password_screen.dart';
+import 'register_screen.dart';
+import '../student/student_main_screen.dart';
+import '../staff/staff_main_screen.dart';
+import '../admin/admin_main_screen.dart';
 
+/// Login Screen for CCMS
+/// Supports authentication for Students, Staff, and Administrators.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -35,447 +22,402 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  // Form key for validation
+class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _loginIdController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
-  // Text controllers
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-
-  // State
   bool _obscurePassword = true;
-
-  // Animation
-  late AnimationController _animController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
-    );
-    _animController.forward();
-  }
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _loginIdController.dispose();
     _passwordController.dispose();
-    _animController.dispose();
     super.dispose();
   }
 
-  /// Handle login button press
+  /// Instant 1-tap demo login for testing any role
+  Future<void> _quickLoginDemo(String email, String password) async {
+    setState(() {
+      _loginIdController.text = email;
+      _passwordController.text = password;
+    });
+    await _handleLogin();
+  }
+
+
   Future<void> _handleLogin() async {
-    // Validate form
     if (!_formKey.currentState!.validate()) return;
 
-    // Clear any previous errors
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    authProvider.clearError();
 
-    // Attempt login
     final success = await authProvider.login(
-      _emailController.text.trim(),
-      _passwordController.text,
+      emailOrStudentId: _loginIdController.text.trim(),
+      password: _passwordController.text,
     );
 
     if (!mounted) return;
 
     if (success) {
-      Helpers.showSuccessSnackbar(context, 'Login successful! Welcome back.');
-      _navigateToDashboard(authProvider.userRole);
-    } else {
-      Helpers.showErrorSnackbar(
+      AppHelpers.showSnackBar(
         context,
-        authProvider.errorMessage ?? 'Login failed. Please try again.',
+        'Welcome back, ${authProvider.currentUser?.name} (${authProvider.userRole})!',
+        isSuccess: true,
+      );
+
+      // Navigate to role-specific portal
+      if (authProvider.isStudent) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const StudentMainScreen(),
+          ),
+        );
+      } else if (authProvider.isStaff) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const StaffMainScreen(),
+          ),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const AdminMainScreen(),
+          ),
+        );
+      }
+    } else {
+      AppHelpers.showSnackBar(
+        context,
+        authProvider.errorMessage ?? 'Login failed. Please check credentials.',
+        isError: true,
       );
     }
   }
 
-  /// Navigate to the correct dashboard based on user role
-  void _navigateToDashboard(String role) {
-    Widget dashboard;
-    switch (role) {
-      case 'staff':
-        dashboard = const StaffDashboard();
-        break;
-      case 'admin':
-        dashboard = const AdminDashboard();
-        break;
-      case 'student':
-      default:
-        dashboard = const StudentDashboard();
-        break;
-    }
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => dashboard),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: AppTheme.scaffoldBackground,
-        child: SafeArea(
+      body: SafeArea(
+        child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 48),
-
-                    // ─── Logo & Title ───
-                    _buildHeader(),
-
-                    const SizedBox(height: 40),
-
-                    // ─── Login Form ───
-                    _buildLoginForm(),
-
-                    const SizedBox(height: 24),
-
-                    // ─── Create Account Link ───
-                    _buildCreateAccountLink(),
-
-                    const SizedBox(height: 24),
-
-                    // ─── Demo Accounts Info ───
-                    _buildDemoAccountsInfo(),
-
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Builds the header with icon and app name
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          width: 90,
-          height: 90,
-          decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            shape: BoxShape.circle,
-            boxShadow: AppTheme.softShadow,
-          ),
-          child: const Icon(
-            Icons.school_rounded,
-            size: 45,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          AppConstants.appShortName,
-          style: GoogleFonts.poppins(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryColor,
-            letterSpacing: 4,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          AppConstants.appName,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Builds the login form card
-  Widget _buildLoginForm() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Welcome Back',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Sign in to continue',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-
-            const SizedBox(height: 28),
-
-            // Email field
-            CustomTextField(
-              controller: _emailController,
-              label: 'Email',
-              hintText: 'Enter your email',
-              prefixIcon: Icons.email_outlined,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              validator: Validators.email,
-              onChanged: (_) {
-                // Clear error when user types
-                Provider.of<AuthProvider>(context, listen: false).clearError();
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Password field
-            CustomTextField(
-              controller: _passwordController,
-              label: 'Password',
-              hintText: 'Enter your password',
-              prefixIcon: Icons.lock_outline_rounded,
-              obscureText: _obscurePassword,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => _handleLogin(),
-              validator: Validators.password,
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  color: AppTheme.textHint,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscurePassword = !_obscurePassword;
-                  });
-                },
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Forgot Password link
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const ForgotPasswordScreen(),
-                    ),
-                  );
-                },
-                child: const Text('Forgot Password?'),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Error message
-            Consumer<AuthProvider>(
-              builder: (context, auth, _) {
-                if (auth.errorMessage != null) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.errorColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppTheme.errorColor.withValues(alpha: 0.3),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // College Logo Emblem
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_rounded,
+                        size: 56,
+                        color: AppTheme.primaryColor,
                       ),
                     ),
-                    child: Row(
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Short Name
+                  const Center(
+                    child: Text(
+                      AppConstants.appShortName,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.secondaryColor,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // Full Application Name
+                  const Text(
+                    AppConstants.appName,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                      height: 1.25,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  const Text(
+                    'Sign in to access your portal',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // One-Tap Instant Role Portals (Instant access to Student, Staff, and Admin)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: AppTheme.errorColor,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            auth.errorMessage!,
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: AppTheme.errorColor,
+                        Row(
+                          children: [
+                            const Icon(Icons.flash_on_rounded,
+                                size: 18, color: Color(0xFFD97706)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Instant Role Portals (One-Tap Access)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade900,
+                              ),
                             ),
-                          ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            _buildQuickChip(
+                              label: 'Student',
+                              subtitle: 'Rahul Sharma',
+                              email: 'student@college.edu',
+                              color: const Color(0xFF1E3A8A),
+                              icon: Icons.school_rounded,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildQuickChip(
+                              label: 'Staff',
+                              subtitle: 'Prof. Verma',
+                              email: 'staff@college.edu',
+                              color: const Color(0xFF0D9488),
+                              icon: Icons.badge_rounded,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildQuickChip(
+                              label: 'Admin',
+                              subtitle: 'Dr. Suresh',
+                              email: 'admin@college.edu',
+                              color: const Color(0xFF7C3AED),
+                              icon: Icons.admin_panel_settings_rounded,
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
+                  ),
 
-            // Login button
-            Consumer<AuthProvider>(
-              builder: (context, auth, _) {
-                return PrimaryButton(
-                  text: 'Login',
-                  isLoading: auth.isLoading,
-                  icon: Icons.login_rounded,
-                  onPressed: _handleLogin,
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+                  const SizedBox(height: 20),
 
-  /// Builds the "Create Account" link row
-  Widget _buildCreateAccountLink() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          "Don't have an account? ",
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: AppTheme.textSecondary,
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          'OR SIGN IN WITH CREDENTIALS',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Email or Student ID Field
+                  CustomTextField(
+                    controller: _loginIdController,
+                    label: 'Email Address or Student ID',
+                    hint: 'e.g. student@college.edu or CS-2024-042',
+                    prefixIcon: Icons.badge_outlined,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) => AppValidators.validateRequired(
+                      v,
+                      'Email or Student ID',
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Password Field
+                  CustomTextField(
+                    controller: _passwordController,
+                    label: 'Password',
+                    hint: 'Enter your account password',
+                    prefixIcon: Icons.lock_outline,
+                    obscureText: _obscurePassword,
+                    validator: AppValidators.validatePassword,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
+                    ),
+                  ),
+
+                  // Forgot Password Link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const ForgotPasswordScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text('Forgot Password?'),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Login Action Button
+                  CustomButton(
+                    text: 'Sign In to CCMS',
+                    icon: Icons.login_rounded,
+                    isLoading: authProvider.isLoading,
+                    onPressed: _handleLogin,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Registration Navigation
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "Don't have an account? ",
+                        style: TextStyle(color: Color(0xFF64748B)),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const RegisterScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Register Now',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
           ),
         ),
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const RegistrationScreen(),
-              ),
-            );
-          },
-          child: const Text('Create Account'),
-        ),
-      ],
+      ),
     );
   }
 
-  /// Shows demo account credentials for easy testing
-  Widget _buildDemoAccountsInfo() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.infoColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(
-          color: AppTheme.infoColor.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                color: AppTheme.infoColor,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Demo Accounts (Password: 123456)',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.infoColor,
+  Widget _buildQuickChip({
+    required String label,
+    required String subtitle,
+    required String email,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _quickLoginDemo(email, 'password123'),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.08),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 20, color: color),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '1-Tap Login',
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          _buildDemoRow('Student', 'student@ccms.com'),
-          const SizedBox(height: 4),
-          _buildDemoRow('Staff', 'staff@ccms.com'),
-          const SizedBox(height: 4),
-          _buildDemoRow('Admin', 'admin@ccms.com'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDemoRow(String role, String email) {
-    return InkWell(
-      onTap: () {
-        _emailController.text = email;
-        _passwordController.text = '123456';
-      },
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 60,
-              child: Text(
-                '$role:',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                email,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const Icon(
-              Icons.content_copy,
-              size: 14,
-              color: AppTheme.textHint,
-            ),
-          ],
         ),
       ),
     );

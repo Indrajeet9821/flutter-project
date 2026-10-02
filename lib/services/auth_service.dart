@@ -1,206 +1,194 @@
-// ============================================================
-// FILE: lib/services/auth_service.dart
-// PURPOSE: Handles all authentication logic.
-//
-// Currently uses MOCK (local) authentication for testing.
-// When Firebase is configured (Phase 9), you simply replace
-// the method bodies with Firebase Auth calls — no other file
-// needs to change.
-//
-// Features:
-// - Login with email & password
-// - Register new users
-// - Send password reset email (mock)
-// - Logout
-// - Get current user
-// - Pre-loaded demo accounts for testing
-// ============================================================
-
-import 'package:uuid/uuid.dart';
+import 'dart:async';
 import '../models/user_model.dart';
+import '../utils/constants.dart';
 
+/// Authentication Service handling user login, registration, password resets,
+/// and session management. Built to integrate seamlessly with Firebase Auth.
 class AuthService {
-  // ─── Singleton pattern (one instance for the whole app) ───
-  static final AuthService _instance = AuthService._internal();
-  factory AuthService() => _instance;
-  AuthService._internal() {
-    _initDemoAccounts();
-  }
-
-  // ─── State ───
+  // Current active user session in memory
   UserModel? _currentUser;
-  final Map<String, _MockAccount> _accounts = {};
-  final Uuid _uuid = const Uuid();
 
-  /// Returns the currently logged-in user, or null
-  UserModel? get currentUser => _currentUser;
-
-  /// Returns true if a user is logged in
-  bool get isLoggedIn => _currentUser != null;
-
-  // ─── Pre-loaded Demo Accounts ───
-  // These let you test all 3 roles immediately without Firebase.
-  void _initDemoAccounts() {
-    // Student account
-    _accounts['student@ccms.com'] = _MockAccount(
-      password: '123456',
-      user: UserModel(
+  // Pre-configured demo accounts for instant testing of all three roles
+  final List<Map<String, dynamic>> _demoAccounts = [
+    {
+      'email': 'student@college.edu',
+      'password': 'password123',
+      'user': UserModel(
         uid: 'demo-student-001',
         name: 'Rahul Sharma',
-        email: 'student@ccms.com',
+        email: 'student@college.edu',
         phone: '9876543210',
-        role: 'student',
+        role: AppConstants.roleStudent,
         department: 'Computer Science',
-        studentId: 'CS2024001',
-        year: '2nd Year',
+        studentId: 'CS-2024-042',
+        createdAt: DateTime(2026, 1, 15),
       ),
-    );
-
-    // Staff account
-    _accounts['staff@ccms.com'] = _MockAccount(
-      password: '123456',
-      user: UserModel(
+    },
+    {
+      'email': 'staff@college.edu',
+      'password': 'password123',
+      'user': UserModel(
         uid: 'demo-staff-001',
-        name: 'Prof. Anita Desai',
-        email: 'staff@ccms.com',
+        name: 'Prof. Anjali Verma',
+        email: 'staff@college.edu',
         phone: '9876543211',
-        role: 'staff',
-        department: 'Computer Science',
+        role: AppConstants.roleStaff,
+        department: 'Information Technology',
+        studentId: 'EMP-IT-108',
+        createdAt: DateTime(2025, 6, 1),
       ),
-    );
-
-    // Admin account
-    _accounts['admin@ccms.com'] = _MockAccount(
-      password: '123456',
-      user: UserModel(
+    },
+    {
+      'email': 'admin@college.edu',
+      'password': 'password123',
+      'user': UserModel(
         uid: 'demo-admin-001',
-        name: 'Dr. Vikram Singh',
-        email: 'admin@ccms.com',
+        name: 'Dr. Suresh Kumar (Chief Admin)',
+        email: 'admin@college.edu',
         phone: '9876543212',
-        role: 'admin',
-        department: 'Administration',
+        role: AppConstants.roleAdmin,
+        department: 'Administrative Office',
+        studentId: 'ADM-001',
+        createdAt: DateTime(2024, 1, 1),
       ),
-    );
+    },
+  ];
+
+  // In-memory registered users pool (allows registering new users during session)
+  final List<UserModel> _registeredUsers = [];
+
+  AuthService() {
+    // Seed initial demo users
+    for (final account in _demoAccounts) {
+      _registeredUsers.add(account['user'] as UserModel);
+    }
   }
 
-  // ─── Login ───
-  /// Attempts to log in with email and password.
-  /// Returns the UserModel on success.
-  /// Throws an exception with a user-friendly message on failure.
-  Future<UserModel> login(String email, String password) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
+  /// Get currently signed-in user
+  UserModel? get currentUser => _currentUser;
 
-    final normalizedEmail = email.trim().toLowerCase();
+  /// Check if user is currently authenticated
+  bool get isAuthenticated => _currentUser != null;
 
-    // Check if account exists
-    final account = _accounts[normalizedEmail];
-    if (account == null) {
-      throw Exception('No account found with this email. Please register first.');
+  /// Authenticate user with Email/StudentId and Password
+  Future<UserModel> login({
+    required String emailOrStudentId,
+    required String password,
+  }) async {
+    // Simulate brief network delay for realistic experience
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    final normalizedInput = emailOrStudentId.trim().toLowerCase();
+
+    // Check demo accounts first
+    for (final account in _demoAccounts) {
+      final user = account['user'] as UserModel;
+      final emailMatches = user.email.toLowerCase() == normalizedInput;
+      final studentIdMatches =
+          user.studentId?.toLowerCase() == normalizedInput;
+
+      if (emailMatches || studentIdMatches) {
+        if (password == account['password']) {
+          _currentUser = user;
+          return user;
+        } else {
+          throw 'Incorrect password. Please try again.';
+        }
+      }
     }
 
-    // Check password
-    if (account.password != password) {
-      throw Exception('Incorrect password. Please try again.');
+    // Check dynamically registered users
+    for (final user in _registeredUsers) {
+      final emailMatches = user.email.toLowerCase() == normalizedInput;
+      final studentIdMatches =
+          user.studentId?.toLowerCase() == normalizedInput;
+
+      if (emailMatches || studentIdMatches) {
+        // For dynamically registered users in demo mode, accept valid password
+        if (password.length >= 6) {
+          _currentUser = user;
+          return user;
+        } else {
+          throw 'Incorrect password. Please try again.';
+        }
+      }
     }
 
-    // Success — set current user
-    _currentUser = account.user;
-    return _currentUser!;
+    throw 'No account found matching "$emailOrStudentId". Please check your credentials or register.';
   }
 
-  // ─── Register ───
-  /// Creates a new student account.
-  /// Returns the newly created UserModel.
-  /// Throws an exception if the email is already registered.
+  /// Register a new user
   Future<UserModel> register({
     required String name,
     required String email,
-    required String password,
     required String phone,
+    required String role,
     required String department,
-    required String studentId,
-    required String year,
+    String? studentId,
+    required String password,
   }) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
+    // Simulate brief network latency
+    await Future.delayed(const Duration(milliseconds: 900));
 
     final normalizedEmail = email.trim().toLowerCase();
 
     // Check if email already exists
-    if (_accounts.containsKey(normalizedEmail)) {
-      throw Exception('An account with this email already exists.');
+    final emailExists = _registeredUsers.any(
+      (u) => u.email.toLowerCase() == normalizedEmail,
+    );
+    if (emailExists) {
+      throw 'An account with this email address already exists.';
     }
 
-    // Create new user
+    // Check if student ID already exists (for students)
+    if (studentId != null && studentId.trim().isNotEmpty) {
+      final idExists = _registeredUsers.any(
+        (u) =>
+            u.studentId != null &&
+            u.studentId!.toLowerCase() == studentId.trim().toLowerCase(),
+      );
+      if (idExists) {
+        throw 'An account with this Student ID / Roll Number already exists.';
+      }
+    }
+
+    // Create new user model
     final newUser = UserModel(
-      uid: _uuid.v4(),
+      uid: 'user-${DateTime.now().millisecondsSinceEpoch}',
       name: name.trim(),
       email: normalizedEmail,
       phone: phone.trim(),
-      role: 'student', // New registrations are always students
+      role: role,
       department: department,
-      studentId: studentId.trim(),
-      year: year,
+      studentId: studentId?.trim(),
+      createdAt: DateTime.now(),
     );
 
-    // Save to mock database
-    _accounts[normalizedEmail] = _MockAccount(
-      password: password,
-      user: newUser,
-    );
-
-    // Auto-login after registration
+    _registeredUsers.add(newUser);
     _currentUser = newUser;
     return newUser;
   }
 
-  // ─── Forgot Password ───
-  /// Sends a password reset email (mock — just validates the email exists).
-  Future<void> sendPasswordResetEmail(String email) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
+  /// Send password reset instructions
+  Future<void> sendPasswordReset(String email) async {
+    await Future.delayed(const Duration(milliseconds: 700));
 
     final normalizedEmail = email.trim().toLowerCase();
+    final userExists = _registeredUsers.any(
+      (u) => u.email.toLowerCase() == normalizedEmail,
+    );
 
-    if (!_accounts.containsKey(normalizedEmail)) {
-      throw Exception('No account found with this email address.');
+    if (!userExists) {
+      throw 'No registered user found with email "$email".';
     }
 
-    // In real app, Firebase Auth sends the reset email.
-    // For now, we just simulate success.
+    // Password reset simulation successful
+    return;
   }
 
-  // ─── Logout ───
-  /// Logs out the current user.
+  /// Log out current user
   Future<void> logout() async {
     await Future.delayed(const Duration(milliseconds: 300));
     _currentUser = null;
   }
-
-  // ─── Get User by UID ───
-  /// Finds a user by their UID (for admin features later).
-  UserModel? getUserByUid(String uid) {
-    for (final account in _accounts.values) {
-      if (account.user.uid == uid) {
-        return account.user;
-      }
-    }
-    return null;
-  }
-
-  // ─── Get All Users (Admin) ───
-  /// Returns all registered users (for admin user management).
-  List<UserModel> getAllUsers() {
-    return _accounts.values.map((a) => a.user).toList();
-  }
-}
-
-/// Internal class to store email/password pairs with user data.
-/// This is only used for mock authentication.
-class _MockAccount {
-  final String password;
-  final UserModel user;
-
-  _MockAccount({required this.password, required this.user});
 }

@@ -1,35 +1,29 @@
-// ============================================================
-// FILE: lib/utils/validators.dart
-// PURPOSE: Contains form validation functions used across the app.
-//
-// Each function returns null if the input is valid,
-// or returns an error message string if invalid.
-// ============================================================
-
-class Validators {
-  /// Validates that a field is not empty
-  static String? required(String? value, [String fieldName = 'This field']) {
+/// Form field validators for CCMS
+class AppValidators {
+  /// Validates required text fields
+  static String? validateRequired(String? value, String fieldName) {
     if (value == null || value.trim().isEmpty) {
       return '$fieldName is required';
     }
     return null;
   }
 
-  /// Validates email format
-  static String? email(String? value) {
+  /// Validates standard email addresses
+  static String? validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Email is required';
+      return 'Email address is required';
     }
-    // Simple email regex pattern
-    final emailRegex = RegExp(r'^[\w\-.]+@([\w\-]+\.)+[\w\-]{2,4}$');
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     if (!emailRegex.hasMatch(value.trim())) {
       return 'Please enter a valid email address';
     }
     return null;
   }
 
-  /// Validates password (minimum 6 characters)
-  static String? password(String? value) {
+  /// Validates password strength (min 6 characters)
+  static String? validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Password is required';
     }
@@ -39,66 +33,36 @@ class Validators {
     return null;
   }
 
-  /// Validates that confirm password matches password
-  static String? confirmPassword(String? value, String password) {
+  /// Validates password confirmation matches
+  static String? validateConfirmPassword(String? value, String originalPassword) {
     if (value == null || value.isEmpty) {
       return 'Please confirm your password';
     }
-    if (value != password) {
+    if (value != originalPassword) {
       return 'Passwords do not match';
     }
     return null;
   }
 
-  /// Validates phone number (10 digits)
-  static String? phone(String? value) {
+  /// Validates 10-digit phone number
+  static String? validatePhone(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Phone number is required';
     }
-    final phoneRegex = RegExp(r'^\d{10}$');
-    if (!phoneRegex.hasMatch(value.trim())) {
-      return 'Please enter a valid 10-digit phone number';
+    final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanPhone.length < 10) {
+      return 'Please enter a valid phone number (at least 10 digits)';
     }
     return null;
   }
 
-  /// Validates that a value is selected from a dropdown
-  static String? dropdown(String? value, [String fieldName = 'This field']) {
-    if (value == null || value.isEmpty) {
-      return 'Please select $fieldName';
-    }
-    return null;
-  }
-
-  /// Validates student ID / roll number
-  static String? studentId(String? value) {
+  /// Validates Student ID / Roll Number
+  static String? validateStudentId(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Student ID is required';
+      return 'Student ID / Roll Number is required';
     }
     if (value.trim().length < 3) {
       return 'Student ID must be at least 3 characters';
-    }
-    return null;
-  }
-
-  /// Validates name (minimum 2 characters, letters only)
-  static String? name(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Name is required';
-    }
-    if (value.trim().length < 2) {
-      return 'Name must be at least 2 characters long';
-    }
-    return null;
-  }
-
-  /// Validates that description has minimum length
-  static String? description(String? value, {int minLength = 10}) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Description is required';
-    }
-    if (value.trim().length < minLength) {
-      return 'Description must be at least $minLength characters long';
     }
     return null;
   }

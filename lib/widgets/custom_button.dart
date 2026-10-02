@@ -1,115 +1,108 @@
-// ============================================================
-// FILE: lib/widgets/custom_button.dart
-// PURPOSE: Reusable button widgets for the app.
-//
-// Includes:
-// - PrimaryButton — filled blue button (main actions)
-// - SecondaryButton — outlined button (secondary actions)
-// Both support loading state with a spinner.
-// ============================================================
-
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
-/// A filled primary button with loading state support.
-class PrimaryButton extends StatelessWidget {
+/// Standardized elevated action button for CCMS
+class CustomButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
   final bool isLoading;
   final IconData? icon;
+  final Color? backgroundColor;
+  final Color? textColor;
+  final bool isOutlined;
   final double? width;
   final double height;
 
-  const PrimaryButton({
+  const CustomButton({
     super.key,
     required this.text,
-    this.onPressed,
+    required this.onPressed,
     this.isLoading = false,
     this.icon,
+    this.backgroundColor,
+    this.textColor,
+    this.isOutlined = false,
     this.width,
-    this.height = 52,
+    this.height = 50,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (isOutlined) {
+      return SizedBox(
+        width: width ?? double.infinity,
+        height: height,
+        child: OutlinedButton(
+          onPressed: isLoading ? null : onPressed,
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(
+              color: backgroundColor ?? theme.primaryColor,
+              width: 1.5,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: _buildChild(context, textColor ?? theme.primaryColor),
+        ),
+      );
+    }
+
     return SizedBox(
       width: width ?? double.infinity,
       height: height,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
-        child: isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 20),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(text),
-                ],
-              ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor ?? theme.primaryColor,
+          foregroundColor: textColor ?? Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 1,
+        ),
+        child: _buildChild(context, textColor ?? Colors.white),
       ),
     );
   }
-}
 
-/// An outlined secondary button with loading state support.
-class SecondaryButton extends StatelessWidget {
-  final String text;
-  final VoidCallback? onPressed;
-  final bool isLoading;
-  final IconData? icon;
-  final double? width;
-  final double height;
+  Widget _buildChild(BuildContext context, Color color) {
+    if (isLoading) {
+      return SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+        ),
+      );
+    }
 
-  const SecondaryButton({
-    super.key,
-    required this.text,
-    this.onPressed,
-    this.isLoading = false,
-    this.icon,
-    this.width,
-    this.height = 52,
-  });
+    if (icon != null) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      );
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width ?? double.infinity,
-      height: height,
-      child: OutlinedButton(
-        onPressed: isLoading ? null : onPressed,
-        child: isLoading
-            ? SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    AppTheme.primaryColor,
-                  ),
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 20),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(text),
-                ],
-              ),
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: color,
       ),
     );
   }

@@ -1,135 +1,120 @@
-// ============================================================
-// FILE: lib/providers/auth_provider.dart
-// PURPOSE: State management for authentication.
-//
-// Uses the Provider package to manage auth state across the app.
-// Connects the UI (screens) to the AuthService (business logic).
-//
-// The UI calls methods on this provider, which calls AuthService,
-// and then notifies all listeners (screens) to rebuild.
-// ============================================================
-
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
+/// AuthProvider manages user authentication state, active sessions,
+/// and error handling across all CCMS screens.
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
 
-  // ─── State Variables ───
-  UserModel? _user;
   bool _isLoading = false;
   String? _errorMessage;
 
-  // ─── Getters ───
-  /// The currently logged-in user (null if not logged in)
-  UserModel? get user => _user;
+  AuthProvider({AuthService? authService})
+      : _authService = authService ?? AuthService();
 
-  /// True while a login/register/reset operation is in progress
+  // Getters
+  UserModel? get currentUser => _authService.currentUser;
+  bool get isAuthenticated => _authService.isAuthenticated;
   bool get isLoading => _isLoading;
-
-  /// Error message from the last failed operation (null if no error)
   String? get errorMessage => _errorMessage;
 
-  /// True if a user is logged in
-  bool get isLoggedIn => _user != null;
+  // Role convenience helpers
+  bool get isStudent => currentUser?.isStudent ?? false;
+  bool get isStaff => currentUser?.isStaff ?? false;
+  bool get isAdmin => currentUser?.isAdmin ?? false;
+  String get userRole => currentUser?.role ?? 'Guest';
 
-  /// The current user's role ('student', 'staff', 'admin')
-  String get userRole => _user?.role ?? '';
-
-  // ─── Login ───
-  /// Attempts to log in. Returns true on success, false on failure.
-  /// On failure, errorMessage is set with the reason.
-  Future<bool> login(String email, String password) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      _user = await _authService.login(email, password);
-      _isLoading = false;
+  /// Clear any pending error messages
+  void clearError() {
+    if (_errorMessage != null) {
+      _errorMessage = null;
       notifyListeners();
-      return true;
-    } catch (e) {
-      _isLoading = false;
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      notifyListeners();
-      return false;
     }
   }
 
-  // ─── Register ───
-  /// Registers a new student account. Returns true on success.
-  Future<bool> register({
-    required String name,
-    required String email,
+  /// Sign in with email/ID and password
+  Future<bool> login({
+    required String emailOrStudentId,
     required String password,
-    required String phone,
-    required String department,
-    required String studentId,
-    required String year,
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _user = await _authService.register(
-        name: name,
-        email: email,
+      await _authService.login(
+        emailOrStudentId: emailOrStudentId,
         password: password,
-        phone: phone,
-        department: department,
-        studentId: studentId,
-        year: year,
       );
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = e.toString();
       notifyListeners();
       return false;
     }
   }
 
-  // ─── Forgot Password ───
-  /// Sends a password reset email. Returns true on success.
-  Future<bool> sendPasswordResetEmail(String email) async {
+  /// Register a new account
+  Future<bool> register({
+    required String name,
+    required String email,
+    required String phone,
+    required String role,
+    required String department,
+    String? studentId,
+    required String password,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      await _authService.sendPasswordResetEmail(email);
+      await _authService.register(
+        name: name,
+        email: email,
+        phone: phone,
+        role: role,
+        department: department,
+        studentId: studentId,
+        password: password,
+      );
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = e.toString();
       notifyListeners();
       return false;
     }
   }
 
-  // ─── Logout ───
-  /// Logs out the current user.
-  Future<void> logout() async {
+  /// Request password reset link
+  Future<bool> sendPasswordReset(String email) async {
     _isLoading = true;
-    notifyListeners();
-
-    await _authService.logout();
-    _user = null;
-    _isLoading = false;
     _errorMessage = null;
     notifyListeners();
+
+    try {
+      await _authService.sendPasswordReset(email);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
-  // ─── Clear Error ───
-  /// Clears the error message (e.g., when user starts typing again)
-  void clearError() {
+  /// Sign out current user
+  Future<void> logout() async {
+    await _authService.logout();
     _errorMessage = null;
     notifyListeners();
   }
