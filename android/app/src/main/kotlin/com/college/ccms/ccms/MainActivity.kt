@@ -1,4 +1,4 @@
-package com.ccms.ccms
+package com.college.ccms.ccms
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.ccms" "\0"
+            VALUE "CompanyName", "com.college.ccms" "\0"
             VALUE "FileDescription", "ccms" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ccms" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.ccms. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.college.ccms. All rights reserved." "\0"
             VALUE "OriginalFilename", "ccms.exe" "\0"
             VALUE "ProductName", "ccms" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
