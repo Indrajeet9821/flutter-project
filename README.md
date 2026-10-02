@@ -107,4 +107,4 @@ This project is for educational purposes.
 
 ## 👤 Author
 
-**Indrajeet Pal Gaderiya**
+**Indrajeet Pal Gaderiya and Binod Gupta**
